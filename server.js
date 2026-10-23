@@ -161,18 +161,62 @@ async function saveCharacter(userId, player) {
 
   if (error) console.error("Erro ao salvar personagem:", error.message);
 }
-io.on("connection", socket => {
-  const spawn = spawnPosition();
+
+io.use(async (socket, next) => {
+  try {
+    if (!supabaseAdmin) {
+      return next(new Error("Autenticação indisponível no servidor."));
+    }
+
+    const token = socket.handshake.auth?.token;
+
+    if (!token) {
+      return next(new Error("Faça login para entrar no jogo."));
+    }
+
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
+
+    if (error || !data.user) {
+      return next(new Error("Sessão inválida. Entre novamente."));
+    }
+
+    socket.data.user = data.user;
+    next();
+  } catch (error) {
+    console.error("Erro na autenticação:", error.message);
+    next(new Error("Não foi possível autenticar sua conta."));
+  }
+});
+
+
+io.on("connection", async socket => {
+  let savedCharacter;
+
+  try {
+    savedCharacter = await loadCharacter(socket.data.user);
+  } catch (error) {
+    console.error("Erro ao carregar personagem:", error.message);
+    socket.disconnect(true);
+    return;
+  }
+
   const p = {
+    ...savedCharacter,
     id: socket.id,
-    name: "Exilado-" + socket.id.slice(0, 4),
-    x: spawn.x,
-    y: spawn.y,
-    hp: 100, maxHp: 100, level: 1, xp: 0, nextXp: 50,
-    gold: 0, kills: 0, attack: 12, afk: false,
-    lastAttack: 0, faceX: 0, faceY: -1, moving: false, lastMoveAt: 0, color: ["#b7a0ff", "#83d6c5", "#f1bd78", "#e58ba7"][Math.floor(Math.random()*4)]
+    userId: socket.data.user.id,
+    afk: false,
+    lastAttack: 0,
+    faceX: 0,
+    faceY: -1,
+    moving: false,
+    lastMoveAt: 0,
+    color: ["#b7a0ff", "#83d6c5", "#f1bd78", "#e58ba7"][
+      Math.floor(Math.random() * 4)
+    ]
   };
+
   players.set(socket.id, p);
+
   socket.emit("welcome", { selfId: socket.id, world: WORLD, player: p, weather });
   socket.emit("worldState", { players: [...players.values()], monsters, weather });
   socket.broadcast.emit("playerJoined", p);
@@ -233,15 +277,24 @@ io.on("connection", socket => {
         me.attack += 3; me.maxHp += 15; me.hp = me.maxHp;
       }
       socket.emit("selfUpdate", me);
+      saveCharacter(me.userId, me);
       io.emit("monsterDied", { id: target.id, x: target.x, y: target.y, by: me.name, gold: me.gold, level: me.level });
       setTimeout(spawnMonster, 3000);
     }
   });
 
-  socket.on("disconnect", () => {
+  
+socket.on("disconnect", async () => {
+  const me = players.get(socket.id);
+
+  if (me) {
+    await saveCharacter(me.userId, me);
     players.delete(socket.id);
-    io.emit("playerLeft", socket.id);
-  });
+  }
+
+  io.emit("playerLeft", socket.id);
+});
+
 });
 
 // Authoritative simple monster AI and AFK combat.
