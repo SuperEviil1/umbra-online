@@ -23,6 +23,10 @@ footer{max-width:1500px;margin:auto;padding:0 14px 16px;color:#8c8da6;font-size:
 @media(max-width:850px){main{grid-template-columns:1fr;padding:8px}.side{display:grid;grid-template-columns:1fr 1fr}.side .panel:last-child{grid-column:1/-1}canvas{height:64vh;min-height:430px}header{padding:0 10px}.stats{gap:8px;font-size:11px}}
 @media(max-width:520px){.side{grid-template-columns:1fr}.side .panel:last-child{grid-column:auto}.logo{font-size:16px}.stats span:nth-child(3){display:none}.hud{min-width:170px}.online{font-size:10px}}
 .inventory-list{display:grid;grid-template-columns:1fr 1fr;gap:7px}.inventory-item{display:flex;align-items:center;gap:7px;min-width:0;padding:9px;background:#111321;border:1px solid #37344d;border-radius:8px}.inventory-icon{font-size:20px}.inventory-name{font-size:11px;color:#e8e2f8;overflow-wrap:anywhere}.inventory-qty{margin-left:auto;color:#f3cf79;font-weight:800;font-size:12px}.inventory-empty{font-size:12px;color:var(--muted);line-height:1.5}.inventory-note{margin:10px 0 0;font-size:10px;color:#8989a4}
+
+.profile-actions{display:flex;gap:7px;margin-top:10px}.profile-actions button,.inventory-item button{cursor:pointer;border:1px solid #55466e;border-radius:7px;background:#29223a;color:#eeeafa;padding:7px;font:inherit}.profile-actions button{flex:1;font-size:11px}.inventory-item{flex-wrap:wrap}.inventory-item .inventory-name{flex:1}.inventory-item .inventory-use{width:100%;padding:6px;font-size:11px}.inventory-item .inventory-use:disabled{opacity:.4;cursor:not-allowed}
+.modal-backdrop{position:fixed;inset:0;z-index:8000;background:#05050bdc;display:none;align-items:center;justify-content:center;padding:16px}.modal-backdrop.open{display:flex}.modal{width:min(420px,100%);background:#151421;border:1px solid #665382;border-radius:14px;padding:20px;box-shadow:0 20px 90px #000b}.modal h2{margin:0 0 14px;color:#d6caff}.modal input{width:100%;padding:11px;border-radius:8px;border:1px solid #514568;background:#0d0c16;color:#fff}.modal .modal-buttons{display:flex;gap:8px;margin-top:12px}.modal button{padding:10px;border-radius:8px;border:1px solid #6e5b91;background:#302641;color:white;cursor:pointer}.modal button.primary{background:#9b7bdf;color:#100d19;font-weight:800}.modal .modal-buttons button{flex:1}.profile-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}.profile-summary div{padding:10px;background:#0e0e18;border-radius:8px;color:#aaa5bf;font-size:11px}.profile-summary b{display:block;color:#fff;font-size:16px;margin-top:4px}
+@media(max-width:520px){.profile-actions{flex-direction:column}.modal{padding:16px}}
 </style>
 </head>
 <body>
@@ -43,11 +47,13 @@ footer{max-width:1500px;margin:auto;padding:0 14px 16px;color:#8c8da6;font-size:
 <div class="hud"><div class="eyebrow">Viajante das sombras</div><div class="name" id="heroName">Exilado</div><div class="label">Vida <span id="hpText">100 / 100</span></div><div class="bar hp"><i id="hpBar"></i></div><div class="label">Experiência <span id="xpText">0 / 50</span></div><div class="bar xp"><i id="xpBar"></i></div></div>
 <div class="online off" id="onlineTag">● Conectando ao servidor</div><div class="weatherTag" id="weatherTag">☁ Clima: Carregando</div><div class="controls">WASD / setas: mover · Clique ou Espaço: atacar · E: farm AFK + caminhada automática</div>
 </section><aside class="side">
-<section class="panel"><h2>Personagem</h2><div class="char"><div class="avatar">♜</div><div><b id="sideName">Exilado</b><br><span class="muted">Caminhante do Véu</span><br><span class="tag" id="classTag">Nível 1</span></div></div><div class="stat"><span>Ataque</span><b id="attackStat">12</b></div><div class="stat"><span>Abates</span><b id="killStat">0</b></div><div class="stat"><span>Jogadores online</span><b id="playersStat">1</b></div></section>
+<section class="panel"><h2>Personagem</h2><div class="char"><div class="avatar">♜</div><div><b id="sideName">Exilado</b><br><span class="muted">Caminhante do Véu</span><br><span class="tag" id="classTag">Nível 1</span></div></div><div class="profile-actions"><button id="profileBtn">👤 Ver perfil</button><button id="renameBtn">✎ Alterar nome</button></div><div class="stat"><span>Ataque</span><b id="attackStat">12</b></div><div class="stat"><span>Abates</span><b id="killStat">0</b></div><div class="stat"><span>Jogadores online</span><b id="playersStat">1</b></div></section>
 <section class="panel"><h2>Ações</h2><div class="gridbtn"><button id="attackBtn">⚔ Atacar</button><button id="afkBtn">☾ Farm AFK: OFF</button></div><p class="muted" style="line-height:1.6">Com o farm AFK ligado, seu personagem caminha sozinho até as criaturas, ataca e coleta recompensas enquanto estiver conectado. Personagem, gold, nível e inventário ficam salvos na sua conta.</p></section>
 <section class="panel"><h2>Inventário</h2><div id="inventoryList" class="inventory-list"><p class="inventory-empty">Carregando itens...</p></div><p class="inventory-note">Itens encontrados nas criaturas são salvos na sua conta.</p></section>
 <section class="panel"><h2>Registro do mundo</h2><div class="log" id="log"><p>As névoas de Umbra se movem entre as ruínas...</p><p>Procure criaturas perto dos cristais.</p></div></section>
-</aside></main><footer>UMBRA Online beta 0.6 · Floresta encantada · Renderização otimizada · Colisões ajustadas</footer>
+</aside></main><div class="modal-backdrop" id="profileModal" role="dialog" aria-modal="true" aria-labelledby="profileTitle"><div class="modal"><h2 id="profileTitle">Perfil do viajante</h2><div class="profile-summary"><div>Nome<b id="profileName">Exilado</b></div><div>Nível<b id="profileLevel">1</b></div><div>Gold<b id="profileGold">0</b></div><div>Criaturas derrotadas<b id="profileKills">0</b></div><div>Experiência<b id="profileXp">0 / 50</b></div><div>Ataque<b id="profileAttack">12</b></div></div><div class="modal-buttons"><button id="profileClose">Fechar</button><button id="profileRename" class="primary">Alterar nome</button></div></div></div>
+<div class="modal-backdrop" id="renameModal" role="dialog" aria-modal="true" aria-labelledby="renameTitle"><div class="modal"><h2 id="renameTitle">Escolha seu nome</h2><p class="muted">Use de 3 a 18 caracteres: letras, números, espaço, _ ou -.</p><input id="renameInput" maxlength="18" autocomplete="off" placeholder="Nome do personagem"><p id="renameMessage" class="muted" role="status"></p><div class="modal-buttons"><button id="renameCancel">Cancelar</button><button id="renameSave" class="primary">Salvar nome</button></div></div></div>
+<footer>UMBRA Online beta 0.7 · Floresta encantada · Renderização otimizada · Colisões ajustadas</footer>
 <script src="/socket.io/socket.io.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -105,15 +111,24 @@ let inventoryRenderKey='';
 function renderInventory(){
  const list=$('inventoryList'); if(!list)return;
  const items=Array.isArray(me.inventory)?me.inventory:[];
- // worldTick runs several times per second; avoid rebuilding inventory DOM unless contents changed.
  const key=items.map(item=>(item.id||'')+':'+(item.quantity||1)+':'+(item.name||'')+':'+(item.icon||'')).join('|');
  if(key===inventoryRenderKey)return;
- inventoryRenderKey=key;
- list.replaceChildren();
+ inventoryRenderKey=key;list.replaceChildren();
  if(!items.length){const empty=document.createElement('p');empty.className='inventory-empty';empty.textContent='Inventário vazio. Derrote criaturas para encontrar itens.';list.appendChild(empty);return;}
- for(const item of items){const card=document.createElement('div');card.className='inventory-item';const icon=document.createElement('span');icon.className='inventory-icon';icon.textContent=item.icon||'📦';const name=document.createElement('span');name.className='inventory-name';name.textContent=item.name||item.id||'Item';const qty=document.createElement('span');qty.className='inventory-qty';qty.textContent='×'+(item.quantity||1);card.append(icon,name,qty);list.appendChild(card);}
+ for(const item of items){
+  const card=document.createElement('div');card.className='inventory-item';
+  const icon=document.createElement('span');icon.className='inventory-icon';icon.textContent=item.icon||'📦';
+  const name=document.createElement('span');name.className='inventory-name';name.textContent=item.name||item.id||'Item';
+  const qty=document.createElement('span');qty.className='inventory-qty';qty.textContent='×'+(item.quantity||1);
+  card.append(icon,name,qty);
+  const usable=item.id==='minor-potion';
+  const use=document.createElement('button');use.className='inventory-use';use.textContent=usable?'🧪 Usar poção':'📦 Material (não utilizável)';
+  use.disabled=!usable;use.title=usable?'Recupera vida':'Este material ainda não tem uso no beta';
+  if(usable)use.onclick=()=>socket.emit('useItem',item.id);
+  card.appendChild(use);list.appendChild(card);
+ }
 }
-function ui(){ renderInventory(); $('topLevel').textContent=me.level||1;$('topGold').textContent=me.gold||0;$('topKills').textContent=me.kills||0;$('hpText').textContent=Math.ceil(me.hp||0)+' / '+(me.maxHp||100);$('hpBar').style.width=((me.hp||0)/(me.maxHp||100)*100)+'%';$('xpText').textContent=(me.xp||0)+' / '+(me.nextXp||50);$('xpBar').style.width=((me.xp||0)/(me.nextXp||50)*100)+'%';$('attackStat').textContent=me.attack||12;$('killStat').textContent=me.kills||0;$('playersStat').textContent=players.size||1;$('classTag').textContent='Nível '+(me.level||1);$('afkBtn').textContent=me.afk?'☾ Farm AFK: ON':'☾ Farm AFK: OFF';$('afkBtn').classList.toggle('active',!!me.afk)}
+function ui(){ renderInventory(); $('heroName').textContent=me.name||'Exilado';$('sideName').textContent=me.name||'Exilado';$('topLevel').textContent=me.level||1;$('topGold').textContent=me.gold||0;$('topKills').textContent=me.kills||0;$('hpText').textContent=Math.ceil(me.hp||0)+' / '+(me.maxHp||100);$('hpBar').style.width=((me.hp||0)/(me.maxHp||100)*100)+'%';$('xpText').textContent=(me.xp||0)+' / '+(me.nextXp||50);$('xpBar').style.width=((me.xp||0)/(me.nextXp||50)*100)+'%';$('attackStat').textContent=me.attack||12;$('killStat').textContent=me.kills||0;$('playersStat').textContent=players.size||1;$('classTag').textContent='Nível '+(me.level||1);$('afkBtn').textContent=me.afk?'☾ Farm AFK: ON':'☾ Farm AFK: OFF';$('afkBtn').classList.toggle('active',!!me.afk)}
 function resize(){let r=canvas.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,1.25);canvas.width=Math.floor(r.width*d);canvas.height=Math.floor(r.height*d);ctx.setTransform(d,0,0,d,0,0);canvas._w=r.width;canvas._h=r.height}
 new ResizeObserver(resize).observe(canvas);resize();
 function pos(x,y){return{x:x-me.x+canvas._w/2,y:y-me.y+canvas._h/2}}
@@ -259,13 +274,25 @@ window.addEventListener('keyup',e=>{let k=e.key.length===1?e.key.toLowerCase():e
 canvas.addEventListener('pointerdown',e=>{attackUntil=performance.now()+230;let r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,tx=me.x+x-r.width/2,ty=me.y+y-r.height/2;let m=monsters.filter(a=>Math.hypot(a.x-tx,a.y-ty)<45).sort((a,b)=>Math.hypot(a.x-me.x,a.y-me.y)-Math.hypot(b.x-me.x,b.y-me.y))[0];socket.emit('attack',m?m.id:null)});
 $('attackBtn').onclick=()=>{attackUntil=performance.now()+230;socket.emit('attack')};$('afkBtn').onclick=()=>{me.afk=!me.afk;socket.emit('toggleAfk',me.afk);ui()};ui();
   
+function openProfile(){ $('profileName').textContent=me.name||'Exilado';$('profileLevel').textContent=me.level||1;$('profileGold').textContent=me.gold||0;$('profileKills').textContent=me.kills||0;$('profileXp').textContent=(me.xp||0)+' / '+(me.nextXp||50);$('profileAttack').textContent=me.attack||12;$('profileModal').classList.add('open');}
+function openRename(){ $('renameInput').value=me.name||'';$('renameMessage').textContent='';$('profileModal').classList.remove('open');$('renameModal').classList.add('open');$('renameInput').focus();}
+$('profileBtn').onclick=openProfile;$('profileClose').onclick=()=>$('profileModal').classList.remove('open');$('profileRename').onclick=openRename;$('renameBtn').onclick=openRename;$('renameCancel').onclick=()=>$('renameModal').classList.remove('open');
+$('profileModal').addEventListener('click',e=>{if(e.target===$('profileModal'))$('profileModal').classList.remove('open')});
+$('renameModal').addEventListener('click',e=>{if(e.target===$('renameModal'))$('renameModal').classList.remove('open')});
+$('renameSave').onclick=()=>{const name=$('renameInput').value.trim();if(!/^[\\p{L}0-9 _-]{3,18}$/u.test(name)){$('renameMessage').textContent='Nome inválido. Use 3 a 18 caracteres.';return;}$('renameSave').disabled=true;$('renameMessage').textContent='Salvando...';socket.emit('renameCharacter',name);};
+$('renameInput').addEventListener('keydown',e=>{if(e.key==='Enter')$('renameSave').click();if(e.key==='Escape')$('renameModal').classList.remove('open')});
+socket.on('characterRenamed',payload=>{me.name=payload.name;ui();$('renameSave').disabled=false;$('renameModal').classList.remove('open');$('renameMessage').textContent='Nome atualizado!';log('Seu personagem agora se chama '+payload.name+'.');});
+socket.on('renameError',message=>{$('renameSave').disabled=false;$('renameMessage').textContent=message;});
+socket.on('itemUsed',payload=>{me.hp=payload.hp;me.inventory=payload.inventory;inventoryRenderKey='';ui();log(payload.message);});
+
 socket.on('connect_error', error => {
   $('authScreen').style.display = 'flex';
   $('authMessage').textContent = error.message || 'Falha ao conectar.';
 });
 
-socket.on('welcome', () => {
+socket.on('welcome', payload => {
   $('authScreen').style.display = 'none';
+  if(payload?.player){me={...me,...payload.player};inventoryRenderKey='';ui();}
 });
 
 async function connectWithSession(session) {
