@@ -65,6 +65,10 @@ function log(s,c=''){let p=document.createElement('p');p.textContent=s;if(c)p.cl
 socket.on('connect',()=>{$('connection').textContent='Conectado';$('onlineTag').textContent='● Servidor conectado';$('onlineTag').classList.remove('off')});
 socket.on('disconnect',()=>{$('connection').textContent='Desconectado';$('onlineTag').textContent='● Conexão perdida';$('onlineTag').classList.add('off');log('Conexão com o servidor perdida.','bad')});
 socket.on('welcome',d=>{selfId=d.selfId;world=d.world;me={...me,...d.player};$('heroName').textContent=me.name;$('sideName').textContent=me.name;log('Você entrou no mundo de Umbra.','good');ui()});
+  socket.on('inventoryUpdate', inventory => {
+  me.inventory = Array.isArray(inventory) ? inventory : [];
+  ui();
+});
 socket.on('worldState',d=>{players=new Map(d.players.map(p=>[p.id,p]));monsters=d.monsters;if(d.weather)setWeather(d.weather)});
 socket.on('playerJoined',p=>{players.set(p.id,p);log(p.name+' entrou no mundo.','gold')});
 socket.on('playerLeft',id=>{const p=players.get(id);if(p)log(p.name+' saiu do mundo.');players.delete(id)});
