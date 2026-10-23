@@ -77,15 +77,25 @@ socket.on('welcome',d=>{selfId=d.selfId;world=d.world;me={...me,...d.player};$('
   me.inventory = Array.isArray(inventory) ? inventory : [];
   ui();
 });
-socket.on('worldState',d=>{players=new Map(d.players.map(p=>[p.id,p]));monsters=d.monsters;if(d.weather)setWeather(d.weather)});
+function syncPlayers(snapshot){
+  const seen=new Set();
+  for(const incoming of snapshot||[]){
+   seen.add(incoming.id);
+   const current=players.get(incoming.id);
+   if(current)Object.assign(current,incoming);else players.set(incoming.id,incoming);
+  }
+  for(const id of players.keys())if(!seen.has(id))players.delete(id);
+ }
+ socket.on('worldState',d=>{syncPlayers(d.players);monsters=d.monsters;if(d.weather)setWeather(d.weather)});
 socket.on('playerJoined',p=>{players.set(p.id,p);log(p.name+' entrou no mundo.','gold')});
 socket.on('playerLeft',id=>{const p=players.get(id);if(p)log(p.name+' saiu do mundo.');players.delete(id)});
 socket.on('selfUpdate',p=>{me={...me,...p};ui()});
-socket.on('worldTick',d=>{players=new Map(d.players.map(p=>[p.id,p]));monsters=d.monsters;if(d.weather && d.weather.type!==weather.type)setWeather(d.weather);const latest=players.get(selfId);if(latest)me={...me,...latest};ui()});
+socket.on('worldTick',d=>{syncPlayers(d.players);monsters=d.monsters;if(d.weather && d.weather.type!==weather.type)setWeather(d.weather);const latest=players.get(selfId);if(latest)me={...me,...latest};ui()});
 socket.on('weatherChanged',setWeather);
 socket.on('notice',s=>log(s,'gold'));
-socket.on('monsterHit',d=>{let m=monsters.find(x=>x.id===d.id);if(m){m.hp=d.hp;particles.push({x:d.x,y:d.y-18,text:'-'+d.damage,life:.8,color:'#ff9aab'})}});
-socket.on('monsterDied',d=>{monsters=monsters.filter(m=>m.id!==d.id);particles.push({x:d.x,y:d.y,text:'✦',life:1,color:'#f3cf79'});if(d.by===me.name)log('Criatura derrotada! Gold e experiência recebidos.','good');else log(d.by+' derrotou uma criatura.','gold')});
+function addParticle(particle){if(particles.length>=80)particles.shift();particles.push(particle)}
+ socket.on('monsterHit',d=>{let m=monsters.find(x=>x.id===d.id);if(m){m.hp=d.hp;addParticle({x:d.x,y:d.y-18,text:'-'+d.damage,life:.8,color:'#ff9aab'})}});
+socket.on('monsterDied',d=>{monsters=monsters.filter(m=>m.id!==d.id);addParticle({x:d.x,y:d.y,text:'✦',life:1,color:'#f3cf79'});if(d.by===me.name)log('Criatura derrotada! Gold e experiência recebidos.','good');else log(d.by+' derrotou uma criatura.','gold')});
 
 const weatherInfo={
  clear:{label:'Tempo ameno',icon:'☁',desc:'A névoa se abre entre as ruínas.'},
