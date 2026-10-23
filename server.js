@@ -38,11 +38,33 @@ for (let i = 0; i < 1250; i++) {
   else if (type < 0.31) obstacles.push({ x, y, r: Math.max(7, size * 0.25 + 2), kind: "rock" });
   else if (type < 0.42) obstacles.push({ x, y, r: Math.max(5, size * 0.16 + 2), kind: "crystal" });
 }
+// Spatial hash: collision checks inspect nearby cells instead of all 1,250 decorations.
+const OBSTACLE_CELL_SIZE = 64;
+const obstacleGrid = new Map();
+function obstacleCellKey(cx, cy) { return cx + ":" + cy; }
+function addObstacleToGrid(obstacle) {
+  const cx = Math.floor(obstacle.x / OBSTACLE_CELL_SIZE);
+  const cy = Math.floor(obstacle.y / OBSTACLE_CELL_SIZE);
+  const key = obstacleCellKey(cx, cy);
+  if (!obstacleGrid.has(key)) obstacleGrid.set(key, []);
+  obstacleGrid.get(key).push(obstacle);
+}
+for (const obstacle of obstacles) addObstacleToGrid(obstacle);
 function collides(x, y, radius = 8) {
-  // Broad phase: only inspect obstacles near the candidate position.
-  for (const o of obstacles) {
-    if (Math.abs(x - o.x) > o.r + radius + 8 || Math.abs(y - o.y) > o.r + radius + 8) continue;
-    if (Math.hypot(x - o.x, y - o.y) < o.r + radius) return true;
+  const reach = 48 + radius - 8;
+  const minX = Math.floor((x - reach) / OBSTACLE_CELL_SIZE);
+  const maxX = Math.floor((x + reach) / OBSTACLE_CELL_SIZE);
+  const minY = Math.floor((y - reach) / OBSTACLE_CELL_SIZE);
+  const maxY = Math.floor((y + reach) / OBSTACLE_CELL_SIZE);
+  for (let cx = minX; cx <= maxX; cx++) {
+    for (let cy = minY; cy <= maxY; cy++) {
+      const nearby = obstacleGrid.get(obstacleCellKey(cx, cy));
+      if (!nearby) continue;
+      for (const o of nearby) {
+        if (Math.abs(x - o.x) > o.r + radius + 8 || Math.abs(y - o.y) > o.r + radius + 8) continue;
+        if (Math.hypot(x - o.x, y - o.y) < o.r + radius) return true;
+      }
+    }
   }
   return false;
 }
@@ -398,9 +420,17 @@ setInterval(() => {
     if (!p.afk) continue;
 
     // AFK farm: find the nearest monster, walk toward it, and attack when close.
-    let target = monsters
-      .map(m => ({ monster: m, distance: Math.hypot(m.x - p.x, m.y - p.y) }))
-      .sort((a, b) => a.distance - b.distance)[0];
+    // Find nearest target in one pass; avoid allocating and sorting a temporary array per player/tick.
+    let targetMonster = null, targetDistance = Infinity;
+    for (const monster of monsters) {
+      const dxToMonster = monster.x - p.x, dyToMonster = monster.y - p.y;
+      const distanceSquared = dxToMonster * dxToMonster + dyToMonster * dyToMonster;
+      if (distanceSquared < targetDistance) {
+        targetDistance = distanceSquared;
+        targetMonster = monster;
+      }
+    }
+    let target = targetMonster ? { monster: targetMonster, distance: Math.sqrt(targetDistance) } : null;
 
     if (target && target.distance > 72) {
       const dx = (target.monster.x - p.x) / target.distance;
@@ -423,10 +453,18 @@ setInterval(() => {
     }
 
     if (now - p.lastAttack < 700) continue;
-    target = monsters
-      .map(m => ({ monster: m, distance: Math.hypot(m.x - p.x, m.y - p.y) }))
-      .filter(item => item.distance < 100)
-      .sort((a, b) => a.distance - b.distance)[0];
+    // Attack the closest in-range monster without map/filter/sort allocations.
+    targetMonster = null;
+    targetDistance = 100 * 100;
+    for (const monster of monsters) {
+      const dxToMonster = monster.x - p.x, dyToMonster = monster.y - p.y;
+      const distanceSquared = dxToMonster * dxToMonster + dyToMonster * dyToMonster;
+      if (distanceSquared < targetDistance) {
+        targetDistance = distanceSquared;
+        targetMonster = monster;
+      }
+    }
+    target = targetMonster ? { monster: targetMonster, distance: Math.sqrt(targetDistance) } : null;
     if (target) {
       p.lastAttack = now;
       const m = target.monster;
