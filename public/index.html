@@ -171,6 +171,21 @@ function buildStaticWorld(){
  ctx.fillStyle='#203f33';ctx.fillRect(0,0,world.width,world.height);
  const tile=48,palette=['#254638','#294a3c','#2c493e','#234235','#2d4c3e','#264438','#29483c'];
  for(let y=0;y<world.height;y+=tile)for(let x=0;x<world.width;x+=tile){const v=Math.abs(Math.floor(x/tile)*19+Math.floor(y/tile)*13)%7;ctx.fillStyle=palette[v];ctx.fillRect(x,y,tile-1,tile-1);if(v===2||v===5){ctx.strokeStyle='#3b6750';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x+8,y+12);ctx.lineTo(x+19,y+9);ctx.lineTo(x+25,y+18);ctx.stroke()}}
+ // Fine ground grain is baked into the static map once, not painted every frame.
+ let grainSeed=73471;
+ const grainRand=()=>{grainSeed=(grainSeed*16807)%2147483647;return(grainSeed-1)/2147483646};
+ for(let i=0;i<4200;i++){
+   const gx=grainRand()*world.width,gy=grainRand()*world.height;
+   ctx.fillStyle=grainRand()>.5?'rgba(157,190,137,.10)':'rgba(5,18,15,.12)';
+   ctx.beginPath();ctx.ellipse(gx,gy,1+grainRand()*2.2,.7+grainRand()*1.4,grainRand(),0,Math.PI*2);ctx.fill();
+ }
+ // Mossy patches add texture while remaining part of the pre-rendered background.
+ for(let i=0;i<170;i++){
+   const gx=grainRand()*world.width,gy=grainRand()*world.height,rr=8+grainRand()*26;
+   const patch=ctx.createRadialGradient(gx,gy,1,gx,gy,rr);
+   patch.addColorStop(0,'rgba(93,142,91,.13)');patch.addColorStop(1,'rgba(93,142,91,0)');
+   ctx.fillStyle=patch;ctx.fillRect(gx-rr,gy-rr,rr*2,rr*2);
+ }
  for(const d of decor){const p={x:d.x,y:d.y};if(d.type<.19){drawTree(p,d.s*1.45,d.h)}else if(d.type<.31){ctx.fillStyle='#4d5552';ctx.beginPath();ctx.moveTo(p.x-d.s*.6,p.y+d.s*.3);ctx.lineTo(p.x-d.s*.3,p.y-d.s*.5);ctx.lineTo(p.x+d.s*.35,p.y-d.s*.7);ctx.lineTo(p.x+d.s*.7,p.y+d.s*.2);ctx.closePath();ctx.fill();ctx.strokeStyle='#85927a';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(p.x-d.s*.2,p.y);ctx.lineTo(p.x+d.s*.05,p.y-d.s*.3);ctx.stroke();ctx.fillStyle='#8dbb84';ctx.beginPath();ctx.ellipse(p.x-2,p.y-2,4,2,-.4,0,Math.PI*2);ctx.fill()}else if(d.type<.42){drawCrystal(p,d.s,d.h,d.phase)}else if(d.type<.56){drawMushroom(p,d.s,d.h,d.phase)}else if(d.type<.65){ctx.strokeStyle='#385c49';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(p.x-d.s*.5,p.y+d.s*.5);ctx.quadraticCurveTo(p.x,p.y-d.s*.5,p.x+d.s*.6,p.y+d.s*.4);ctx.stroke();ctx.fillStyle='#5e9c70';ctx.beginPath();ctx.ellipse(p.x+2,p.y-3,4,2,-.4,0,Math.PI*2);ctx.fill()}else if(d.type<.8){ctx.fillStyle='#32664d';ctx.beginPath();ctx.ellipse(p.x,p.y,d.s*.48,d.s*.25,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=d.h<180?'#d0e99b':'#d5a5ed';ctx.beginPath();ctx.arc(p.x,p.y-2,1.7,0,Math.PI*2);ctx.fill()}else{ctx.fillStyle='#6c8d6c';ctx.globalAlpha=.65;ctx.beginPath();ctx.ellipse(p.x,p.y,d.s*.45,d.s*.2,d.phase,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1}}
  ctx=screenCtx;me.x=oldX;me.y=oldY;canvas._w=oldW;canvas._h=oldH;staticWorldReady=true;
 }
@@ -221,7 +236,24 @@ if(staticWorldReady)ctx.drawImage(staticWorld,left,top,w,h,0,0,w,h);else{ctx.fil
  for(const a of particles){let q=pos(a.x,a.y);ctx.globalAlpha=Math.max(0,a.life);ctx.fillStyle=a.color;ctx.font='bold 15px system-ui';ctx.textAlign='center';ctx.fillText(a.text,q.x,q.y-(1-a.life)*25);ctx.globalAlpha=1}
 }
 buildStaticWorld();
-let lastRender=0;function frame(){const now=performance.now();if(now-lastRender<1000/50){requestAnimationFrame(frame);return}lastRender=now;let dx=0,dy=0;if(keys.w||keys.ArrowUp)dy--;if(keys.s||keys.ArrowDown)dy++;if(keys.a||keys.ArrowLeft)dx--;if(keys.d||keys.ArrowRight)dx++;if((dx||dy)&&now-lastMove>32){socket.emit('move',{dx,dy});lastMove=now}for(const p of particles)p.life-=.035;particles=particles.filter(p=>p.life>0);draw();requestAnimationFrame(frame)}requestAnimationFrame(frame);
+let lastRender=0,renderFrameId=0;
+function frame(){
+ if(document.hidden){renderFrameId=requestAnimationFrame(frame);return}
+ const now=performance.now();
+ // Target 60 FPS when the browser can sustain it; do not render extra frames needlessly.
+ if(now-lastRender<1000/60){renderFrameId=requestAnimationFrame(frame);return}
+ lastRender=now;
+ let dx=0,dy=0;
+ if(keys.w||keys.ArrowUp)dy--;if(keys.s||keys.ArrowDown)dy++;
+ if(keys.a||keys.ArrowLeft)dx--;if(keys.d||keys.ArrowRight)dx++;
+ if((dx||dy)&&now-lastMove>32){socket.emit('move',{dx,dy});lastMove=now}
+ // Update particles in place to avoid allocating a new array every rendered frame.
+ for(let i=particles.length-1;i>=0;i--){particles[i].life-=.035;if(particles[i].life<=0)particles.splice(i,1)}
+ draw();
+ renderFrameId=requestAnimationFrame(frame);
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){lastRender=0}});
+requestAnimationFrame(frame);
 window.addEventListener('keydown',e=>{let k=e.key.length===1?e.key.toLowerCase():e.key;keys[k]=true;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();if(e.code==='Space'){attackUntil=performance.now()+230;socket.emit('attack');}if(k==='e'){me.afk=!me.afk;socket.emit('toggleAfk',me.afk);ui()}});
 window.addEventListener('keyup',e=>{let k=e.key.length===1?e.key.toLowerCase():e.key;keys[k]=false});
 canvas.addEventListener('pointerdown',e=>{attackUntil=performance.now()+230;let r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,tx=me.x+x-r.width/2,ty=me.y+y-r.height/2;let m=monsters.filter(a=>Math.hypot(a.x-tx,a.y-ty)<45).sort((a,b)=>Math.hypot(a.x-me.x,a.y-me.y)-Math.hypot(b.x-me.x,b.y-me.y))[0];socket.emit('attack',m?m.id:null)});
