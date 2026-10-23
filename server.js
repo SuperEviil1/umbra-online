@@ -61,6 +61,33 @@ setInterval(() => {
   if (Date.now() >= weather.until) changeWeather();
 }, 5000);
 
+const ITEM_CATALOG = {
+  "slime-gel": { name: "Gelatina Sombria", icon: "🟣" },
+  "old-bone": { name: "Osso Antigo", icon: "🦴" },
+  "veil-shard": { name: "Fragmento do Véu", icon: "💎" },
+  "minor-potion": { name: "Poção Menor", icon: "🧪" }
+};
+async function loadInventory(userId) {
+  if (!supabaseAdmin || !userId) return [];
+  const { data, error } = await supabaseAdmin.from("character_inventory").select("item_id, quantity, metadata").eq("user_id", userId);
+  if (error) { console.error("Erro ao carregar inventário:", error.message); return []; }
+  return (data || []).map(row => ({ id: row.item_id, name: ITEM_CATALOG[row.item_id]?.name || row.item_id, icon: ITEM_CATALOG[row.item_id]?.icon || "📦", quantity: row.quantity, metadata: row.metadata || {} }));
+}
+async function grantRandomLoot(player, socketId) {
+  if (!supabaseAdmin || !player?.userId) return;
+  const roll = Math.random();
+  const itemId = roll < .42 ? "slime-gel" : roll < .72 ? "old-bone" : roll < .78 ? "veil-shard" : roll < .9 ? "minor-potion" : null;
+  if (!itemId) return;
+  const { data: current, error: readError } = await supabaseAdmin.from("character_inventory").select("quantity").eq("user_id", player.userId).eq("item_id", itemId).maybeSingle();
+  if (readError) { console.error("Erro ao consultar item:", readError.message); return; }
+  const { error } = await supabaseAdmin.from("character_inventory").upsert({ user_id: player.userId, item_id: itemId, quantity: (current?.quantity || 0) + 1, updated_at: new Date().toISOString() }, { onConflict: "user_id,item_id" });
+  if (error) { console.error("Erro ao salvar item:", error.message); return; }
+  const inventory = await loadInventory(player.userId);
+  player.inventory = inventory;
+  io.to(socketId).emit("inventoryUpdate", inventory);
+  io.to(socketId).emit("notice", "Item obtido: " + ITEM_CATALOG[itemId].name + "!");
+}
+
 function rand(min, max) { return min + Math.random() * (max - min); }
 function spawnMonster() {
   const angle = Math.random() * Math.PI * 2;
@@ -200,8 +227,11 @@ io.on("connection", async socket => {
     return;
   }
 
+  const inventory = await loadInventory(socket.data.user.id);
+
   const p = {
     ...savedCharacter,
+    inventory,
     id: socket.id,
     userId: socket.data.user.id,
     afk: false,
@@ -277,6 +307,7 @@ io.on("connection", async socket => {
         me.attack += 3; me.maxHp += 15; me.hp = me.maxHp;
       }
       socket.emit("selfUpdate", me);
+      void grantRandomLoot(me, socket.id);
       saveCharacter(me.userId, me);
       io.emit("monsterDied", { id: target.id, x: target.x, y: target.y, by: me.name, gold: me.gold, level: me.level });
       setTimeout(spawnMonster, 3000);
@@ -326,6 +357,8 @@ setInterval(() => {
         p.kills++; p.gold += Math.floor(rand(5,13)); p.xp += 15;
         while (p.xp >= p.nextXp) { p.xp -= p.nextXp; p.level++; p.nextXp = Math.floor(p.nextXp*1.45); p.attack += 3; p.maxHp += 15; p.hp = p.maxHp; }
         io.to(p.id).emit("selfUpdate", p);
+        void grantRandomLoot(p, p.id);
+        saveCharacter(p.userId, p);
         io.emit("monsterDied", { id: target.id, x: target.x, y: target.y, by: p.name, gold: p.gold, level: p.level });
         setTimeout(spawnMonster, 3000);
       }
