@@ -22,6 +22,7 @@ button{width:100%;border:1px solid #67578d;background:linear-gradient(135deg,#40
 footer{max-width:1500px;margin:auto;padding:0 14px 16px;color:#8c8da6;font-size:11px}
 @media(max-width:850px){main{grid-template-columns:1fr;padding:8px}.side{display:grid;grid-template-columns:1fr 1fr}.side .panel:last-child{grid-column:1/-1}canvas{height:64vh;min-height:430px}header{padding:0 10px}.stats{gap:8px;font-size:11px}}
 @media(max-width:520px){.side{grid-template-columns:1fr}.side .panel:last-child{grid-column:auto}.logo{font-size:16px}.stats span:nth-child(3){display:none}.hud{min-width:170px}.online{font-size:10px}}
+.inventory-list{display:grid;grid-template-columns:1fr 1fr;gap:7px}.inventory-item{display:flex;align-items:center;gap:7px;min-width:0;padding:9px;background:#111321;border:1px solid #37344d;border-radius:8px}.inventory-icon{font-size:20px}.inventory-name{font-size:11px;color:#e8e2f8;overflow-wrap:anywhere}.inventory-qty{margin-left:auto;color:#f3cf79;font-weight:800;font-size:12px}.inventory-empty{font-size:12px;color:var(--muted);line-height:1.5}.inventory-note{margin:10px 0 0;font-size:10px;color:#8989a4}
 </style>
 </head>
 <body>
@@ -43,7 +44,8 @@ footer{max-width:1500px;margin:auto;padding:0 14px 16px;color:#8c8da6;font-size:
 <div class="online off" id="onlineTag">● Conectando ao servidor</div><div class="weatherTag" id="weatherTag">☁ Clima: Carregando</div><div class="controls">WASD / setas: mover · Clique ou Espaço: atacar · E: farm AFK</div>
 </section><aside class="side">
 <section class="panel"><h2>Personagem</h2><div class="char"><div class="avatar">♜</div><div><b id="sideName">Exilado</b><br><span class="muted">Caminhante do Véu</span><br><span class="tag" id="classTag">Nível 1</span></div></div><div class="stat"><span>Ataque</span><b id="attackStat">12</b></div><div class="stat"><span>Abates</span><b id="killStat">0</b></div><div class="stat"><span>Jogadores online</span><b id="playersStat">1</b></div></section>
-<section class="panel"><h2>Ações</h2><div class="gridbtn"><button id="attackBtn">⚔ Atacar</button><button id="afkBtn">☾ Farm AFK: OFF</button></div><p class="muted" style="line-height:1.6">O farm funciona enquanto você estiver conectado. Esta beta sincroniza jogadores e monstros pelo servidor; contas e salvamento permanente virão depois.</p></section>
+<section class="panel"><h2>Ações</h2><div class="gridbtn"><button id="attackBtn">⚔ Atacar</button><button id="afkBtn">☾ Farm AFK: OFF</button></div><p class="muted" style="line-height:1.6">O farm automático funciona enquanto você estiver conectado. Seu personagem, gold, nível e inventário ficam salvos na sua conta.</p></section>
+<section class="panel"><h2>Inventário</h2><div id="inventoryList" class="inventory-list"><p class="inventory-empty">Carregando itens...</p></div><p class="inventory-note">Itens encontrados nas criaturas são salvos na sua conta.</p></section>
 <section class="panel"><h2>Registro do mundo</h2><div class="log" id="log"><p>As névoas de Umbra se movem entre as ruínas...</p><p>Procure criaturas perto dos cristais.</p></div></section>
 </aside></main><footer>UMBRA Online beta 0.6 · Floresta encantada · Renderização otimizada · Colisões ajustadas</footer>
 <script src="/socket.io/socket.io.js"></script>
@@ -99,7 +101,13 @@ function setWeather(w){
  const count=weather.type==='rain'?90:weather.type==='storm'?120:weather.type==='snow'?55:weather.type==='fog'?22:weather.type==='sunny'?30:0;
  for(let i=0;i<count;i++)weatherParticles.push({x:Math.random(),y:Math.random(),speed:.3+Math.random()*.9,drift:(Math.random()-.5)*.5,size:1+Math.random()*2,phase:Math.random()*Math.PI*2});
 }
-function ui(){ $('topLevel').textContent=me.level||1;$('topGold').textContent=me.gold||0;$('topKills').textContent=me.kills||0;$('hpText').textContent=Math.ceil(me.hp||0)+' / '+(me.maxHp||100);$('hpBar').style.width=((me.hp||0)/(me.maxHp||100)*100)+'%';$('xpText').textContent=(me.xp||0)+' / '+(me.nextXp||50);$('xpBar').style.width=((me.xp||0)/(me.nextXp||50)*100)+'%';$('attackStat').textContent=me.attack||12;$('killStat').textContent=me.kills||0;$('playersStat').textContent=players.size||1;$('classTag').textContent='Nível '+(me.level||1);$('afkBtn').textContent=me.afk?'☾ Farm AFK: ON':'☾ Farm AFK: OFF';$('afkBtn').classList.toggle('active',!!me.afk)}
+function renderInventory(){
+ const list=$('inventoryList'); if(!list)return;
+ const items=Array.isArray(me.inventory)?me.inventory:[]; list.replaceChildren();
+ if(!items.length){const empty=document.createElement('p');empty.className='inventory-empty';empty.textContent='Inventário vazio. Derrote criaturas para encontrar itens.';list.appendChild(empty);return;}
+ for(const item of items){const card=document.createElement('div');card.className='inventory-item';const icon=document.createElement('span');icon.className='inventory-icon';icon.textContent=item.icon||'📦';const name=document.createElement('span');name.className='inventory-name';name.textContent=item.name||item.id||'Item';const qty=document.createElement('span');qty.className='inventory-qty';qty.textContent='×'+(item.quantity||1);card.append(icon,name,qty);list.appendChild(card);}
+}
+function ui(){ renderInventory(); $('topLevel').textContent=me.level||1;$('topGold').textContent=me.gold||0;$('topKills').textContent=me.kills||0;$('hpText').textContent=Math.ceil(me.hp||0)+' / '+(me.maxHp||100);$('hpBar').style.width=((me.hp||0)/(me.maxHp||100)*100)+'%';$('xpText').textContent=(me.xp||0)+' / '+(me.nextXp||50);$('xpBar').style.width=((me.xp||0)/(me.nextXp||50)*100)+'%';$('attackStat').textContent=me.attack||12;$('killStat').textContent=me.kills||0;$('playersStat').textContent=players.size||1;$('classTag').textContent='Nível '+(me.level||1);$('afkBtn').textContent=me.afk?'☾ Farm AFK: ON':'☾ Farm AFK: OFF';$('afkBtn').classList.toggle('active',!!me.afk)}
 function resize(){let r=canvas.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,1.25);canvas.width=Math.floor(r.width*d);canvas.height=Math.floor(r.height*d);ctx.setTransform(d,0,0,d,0,0);canvas._w=r.width;canvas._h=r.height}
 new ResizeObserver(resize).observe(canvas);resize();
 function pos(x,y){return{x:x-me.x+canvas._w/2,y:y-me.y+canvas._h/2}}
