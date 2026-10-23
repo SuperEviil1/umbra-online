@@ -420,17 +420,9 @@ setInterval(() => {
     if (!p.afk) continue;
 
     // AFK farm: find the nearest monster, walk toward it, and attack when close.
-    // Find nearest target in one pass; avoid allocating and sorting a temporary array per player/tick.
-    let targetMonster = null, targetDistance = Infinity;
-    for (const monster of monsters) {
-      const dxToMonster = monster.x - p.x, dyToMonster = monster.y - p.y;
-      const distanceSquared = dxToMonster * dxToMonster + dyToMonster * dyToMonster;
-      if (distanceSquared < targetDistance) {
-        targetDistance = distanceSquared;
-        targetMonster = monster;
-      }
-    }
-    let target = targetMonster ? { monster: targetMonster, distance: Math.sqrt(targetDistance) } : null;
+    let target = monsters
+      .map(m => ({ monster: m, distance: Math.hypot(m.x - p.x, m.y - p.y) }))
+      .sort((a, b) => a.distance - b.distance)[0];
 
     if (target && target.distance > 72) {
       const dx = (target.monster.x - p.x) / target.distance;
@@ -453,18 +445,10 @@ setInterval(() => {
     }
 
     if (now - p.lastAttack < 700) continue;
-    // Attack the closest in-range monster without map/filter/sort allocations.
-    targetMonster = null;
-    targetDistance = 100 * 100;
-    for (const monster of monsters) {
-      const dxToMonster = monster.x - p.x, dyToMonster = monster.y - p.y;
-      const distanceSquared = dxToMonster * dxToMonster + dyToMonster * dyToMonster;
-      if (distanceSquared < targetDistance) {
-        targetDistance = distanceSquared;
-        targetMonster = monster;
-      }
-    }
-    target = targetMonster ? { monster: targetMonster, distance: Math.sqrt(targetDistance) } : null;
+    target = monsters
+      .map(m => ({ monster: m, distance: Math.hypot(m.x - p.x, m.y - p.y) }))
+      .filter(item => item.distance < 100)
+      .sort((a, b) => a.distance - b.distance)[0];
     if (target) {
       p.lastAttack = now;
       const m = target.monster;
