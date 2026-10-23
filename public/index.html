@@ -26,7 +26,18 @@ footer{max-width:1500px;margin:auto;padding:0 14px 16px;color:#8c8da6;font-size:
 </head>
 <body>
 <header><div class="logo">UMBRA<span>.</span></div><div class="stats"><span>🌐 <b id="connection">Conectando...</b></span><span>Nível <b id="topLevel">1</b></span><span>✦ <b id="topGold">0</b> gold</span><span>☠ <b id="topKills">0</b></span></div></header>
-<main><section class="stage">
+<div id="authScreen" style="position:fixed;inset:0;z-index:9999;background:#100d19;color:#fff;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif">
+  <div style="background:#1b1627;padding:30px;border-radius:16px;width:320px;max-width:85%">
+    <h1 style="color:#b7a0ff;text-align:center">UMBRA<span style="color:#fff">.</span></h1>
+    <p style="text-align:center">Entre no mundo das sombras</p>
+    <input id="authEmail" type="email" placeholder="Seu e-mail" style="box-sizing:border-box;width:100%;padding:12px;margin:8px 0;background:#100d19;color:white;border:1px solid #514568;border-radius:8px">
+    <input id="authPassword" type="password" placeholder="Sua senha (mínimo 6 caracteres)" style="box-sizing:border-box;width:100%;padding:12px;margin:8px 0;background:#100d19;color:white;border:1px solid #514568;border-radius:8px">
+    <button id="loginBtn" style="width:100%;padding:12px;margin-top:10px;background:#9b7bdf;border:0;border-radius:8px;color:#100d19;font-weight:bold;cursor:pointer">Entrar</button>
+    <button id="registerBtn" style="width:100%;padding:12px;margin-top:8px;background:#302641;border:1px solid #6e5b91;border-radius:8px;color:white;cursor:pointer">Criar conta</button>
+    <p id="authMessage" style="font-size:13px;text-align:center"></p>
+  </div>
+</div>
+ <main><section class="stage">
 <canvas id="game" aria-label="Mundo UMBRA"></canvas>
 <div class="hud"><div class="eyebrow">Viajante das sombras</div><div class="name" id="heroName">Exilado</div><div class="label">Vida <span id="hpText">100 / 100</span></div><div class="bar hp"><i id="hpBar"></i></div><div class="label">Experiência <span id="xpText">0 / 50</span></div><div class="bar xp"><i id="xpBar"></i></div></div>
 <div class="online off" id="onlineTag">● Conectando ao servidor</div><div class="weatherTag" id="weatherTag">☁ Clima: Carregando</div><div class="controls">WASD / setas: mover · Clique ou Espaço: atacar · E: farm AFK</div>
@@ -36,7 +47,15 @@ footer{max-width:1500px;margin:auto;padding:0 14px 16px;color:#8c8da6;font-size:
 <section class="panel"><h2>Registro do mundo</h2><div class="log" id="log"><p>As névoas de Umbra se movem entre as ruínas...</p><p>Procure criaturas perto dos cristais.</p></div></section>
 </aside></main><footer>UMBRA Online beta 0.6 · Floresta encantada · Renderização otimizada · Colisões ajustadas</footer>
 <script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+const SUPABASE_URL = 'https://ysyamsrhfhfmscjgjfzc.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_B_V6f4RfWEgCeZ6lwL2XqQ__x6ZBx6X';
+const supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY
+);
+
 (() => {
 const canvas=document.getElementById('game');let ctx=canvas.getContext('2d',{alpha:false, desynchronized:true});const $=id=>document.getElementById(id);
 const socket=io();let selfId=null,world={width:2400,height:1800},attackUntil=0,walkPhase=0,weather={type:'clear',until:Date.now()+60000},weatherParticles=[],me={x:1200,y:900,hp:100,maxHp:100,level:1,xp:0,nextXp:50,gold:0,kills:0,attack:12,afk:false,faceX:0,faceY:-1,color:'#b7a0ff'},players=new Map(),monsters=[],decor=[],keys={},particles=[],lastMove=0,seed=98231;
