@@ -1,12 +1,12 @@
+
 {
   "name": "umbra-rpg-online",
   "version": "0.7.1",
   "private": true,
-  "description": "UMBRA Online - prototipo MMORPG 2D dark fantasy com floresta encantada e animacoes Canvas",
-  "main": "server.js",
+  "description": "UMBRA Online - RPG 2D online",
+  "main": "servidor.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node servidor.js"
   },
   "dependencies": {
     "express": "^4.21.2",
