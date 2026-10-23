@@ -65,7 +65,7 @@ const ITEM_CATALOG = {
   "slime-gel": { name: "Gelatina Sombria", icon: "🟣" },
   "old-bone": { name: "Osso Antigo", icon: "🦴" },
   "veil-shard": { name: "Fragmento do Véu", icon: "💎" },
-  "minor-potion": { name: "Poção Menor", icon: "🧪" }
+  "minor-potion": { name: "Poção Menor", icon: "🧪", usable: true }
 };
 async function loadInventory(userId) {
   if (!supabaseAdmin || !userId) return [];
@@ -271,6 +271,56 @@ io.on("connection", async socket => {
     me.faceX = dx; me.faceY = dy;
     me.moving = true; me.lastMoveAt = Date.now();
     socket.emit("selfUpdate", me);
+  });
+
+  socket.on("renameCharacter", async requestedName => {
+    const me = players.get(socket.id);
+    if (!me) return;
+    const name = String(requestedName || "").trim();
+    if (name.length < 3 || name.length > 18 || !/^[\\p{L}0-9 _-]+$/u.test(name)) {
+      socket.emit("renameError", "Nome inválido. Use 3 a 18 letras, números, espaços, _ ou -.");
+      return;
+    }
+    const { error } = await supabaseAdmin.from("characters").update({ name, updated_at: new Date().toISOString() }).eq("user_id", me.userId);
+    if (error) {
+      console.error("Erro ao alterar nome:", error.message);
+      socket.emit("renameError", "Não foi possível salvar o nome. Tente novamente.");
+      return;
+    }
+    me.name = name;
+    socket.emit("characterRenamed", { name });
+    io.emit("worldState", { players: [...players.values()], monsters, weather });
+    void saveCharacter(me.userId, me);
+  });
+
+  socket.on("useItem", async itemId => {
+    const me = players.get(socket.id);
+    if (!me || itemId !== "minor-potion") return;
+    const { data: row, error: readError } = await supabaseAdmin.from("character_inventory").select("quantity").eq("user_id", me.userId).eq("item_id", itemId).maybeSingle();
+    if (readError || !row || row.quantity < 1) {
+      socket.emit("notice", "Você não tem essa poção no inventário.");
+      return;
+    }
+    if (me.hp >= me.maxHp) {
+      socket.emit("notice", "Sua vida já está cheia.");
+      return;
+    }
+    const remaining = row.quantity - 1;
+    const query = remaining > 0
+      ? supabaseAdmin.from("character_inventory").update({ quantity: remaining, updated_at: new Date().toISOString() }).eq("user_id", me.userId).eq("item_id", itemId)
+      : supabaseAdmin.from("character_inventory").delete().eq("user_id", me.userId).eq("item_id", itemId);
+    const { error: writeError } = await query;
+    if (writeError) {
+      console.error("Erro ao consumir poção:", writeError.message);
+      socket.emit("notice", "Não foi possível usar o item. Tente novamente.");
+      return;
+    }
+    const healed = Math.min(35, me.maxHp - me.hp);
+    me.hp += healed;
+    const inventory = await loadInventory(me.userId);
+    me.inventory = inventory;
+    socket.emit("itemUsed", { hp: me.hp, inventory, message: "Poção usada: +" + healed + " de vida." });
+    void saveCharacter(me.userId, me);
   });
 
   socket.on("toggleAfk", value => {
