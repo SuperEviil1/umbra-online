@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: umbra-online
-    runtime: node
-    plan: free
-    buildCommand: npm install
-    startCommand: npm start
-    healthCheckPath: /
-    autoDeploy: true
