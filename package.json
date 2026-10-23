@@ -6,7 +6,7 @@
   "description": "UMBRA Online - RPG 2D online",
   "main": "servidor.js",
   "scripts": {
-    "start": "node servidor.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.21.2",
