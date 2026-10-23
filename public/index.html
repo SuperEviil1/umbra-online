@@ -101,9 +101,15 @@ function setWeather(w){
  const count=weather.type==='rain'?90:weather.type==='storm'?120:weather.type==='snow'?55:weather.type==='fog'?22:weather.type==='sunny'?30:0;
  for(let i=0;i<count;i++)weatherParticles.push({x:Math.random(),y:Math.random(),speed:.3+Math.random()*.9,drift:(Math.random()-.5)*.5,size:1+Math.random()*2,phase:Math.random()*Math.PI*2});
 }
+let inventoryRenderKey='';
 function renderInventory(){
  const list=$('inventoryList'); if(!list)return;
- const items=Array.isArray(me.inventory)?me.inventory:[]; list.replaceChildren();
+ const items=Array.isArray(me.inventory)?me.inventory:[];
+ // worldTick runs several times per second; avoid rebuilding inventory DOM unless contents changed.
+ const key=items.map(item=>(item.id||'')+':'+(item.quantity||1)+':'+(item.name||'')+':'+(item.icon||'')).join('|');
+ if(key===inventoryRenderKey)return;
+ inventoryRenderKey=key;
+ list.replaceChildren();
  if(!items.length){const empty=document.createElement('p');empty.className='inventory-empty';empty.textContent='Inventário vazio. Derrote criaturas para encontrar itens.';list.appendChild(empty);return;}
  for(const item of items){const card=document.createElement('div');card.className='inventory-item';const icon=document.createElement('span');icon.className='inventory-icon';icon.textContent=item.icon||'📦';const name=document.createElement('span');name.className='inventory-name';name.textContent=item.name||item.id||'Item';const qty=document.createElement('span');qty.className='inventory-qty';qty.textContent='×'+(item.quantity||1);card.append(icon,name,qty);list.appendChild(card);}
 }
