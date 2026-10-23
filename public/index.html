@@ -58,7 +58,7 @@ const supabaseClient = window.supabase.createClient(
 
 (() => {
 const canvas=document.getElementById('game');let ctx=canvas.getContext('2d',{alpha:false, desynchronized:true});const $=id=>document.getElementById(id);
-const socket=io();let selfId=null,world={width:2400,height:1800},attackUntil=0,walkPhase=0,weather={type:'clear',until:Date.now()+60000},weatherParticles=[],me={x:1200,y:900,hp:100,maxHp:100,level:1,xp:0,nextXp:50,gold:0,kills:0,attack:12,afk:false,faceX:0,faceY:-1,color:'#b7a0ff'},players=new Map(),monsters=[],decor=[],keys={},particles=[],lastMove=0,seed=98231;
+const socket=io({ autoConnect: false });let selfId=null,world={width:2400,height:1800},attackUntil=0,walkPhase=0,weather={type:'clear',until:Date.now()+60000},weatherParticles=[],me={x:1200,y:900,hp:100,maxHp:100,level:1,xp:0,nextXp:50,gold:0,kills:0,attack:12,afk:false,faceX:0,faceY:-1,color:'#b7a0ff'},players=new Map(),monsters=[],decor=[],keys={},particles=[],lastMove=0,seed=98231;
 function rand(){seed=(seed*16807)%2147483647;return(seed-1)/2147483646}
 for(let i=0;i<1250;i++)decor.push({x:rand()*2400,y:rand()*1800,type:rand(),s:5+rand()*25,h:rand()*360,phase:rand()*Math.PI*2});
 function log(s,c=''){let p=document.createElement('p');p.textContent=s;if(c)p.className=c;$('log').prepend(p);while($('log').children.length>30)$('log').lastChild.remove()}
@@ -208,5 +208,68 @@ window.addEventListener('keydown',e=>{let k=e.key.length===1?e.key.toLowerCase()
 window.addEventListener('keyup',e=>{let k=e.key.length===1?e.key.toLowerCase():e.key;keys[k]=false});
 canvas.addEventListener('pointerdown',e=>{attackUntil=performance.now()+230;let r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,tx=me.x+x-r.width/2,ty=me.y+y-r.height/2;let m=monsters.filter(a=>Math.hypot(a.x-tx,a.y-ty)<45).sort((a,b)=>Math.hypot(a.x-me.x,a.y-me.y)-Math.hypot(b.x-me.x,b.y-me.y))[0];socket.emit('attack',m?m.id:null)});
 $('attackBtn').onclick=()=>{attackUntil=performance.now()+230;socket.emit('attack')};$('afkBtn').onclick=()=>{me.afk=!me.afk;socket.emit('toggleAfk',me.afk);ui()};ui();
+  
+socket.on('connect_error', error => {
+  $('authScreen').style.display = 'flex';
+  $('authMessage').textContent = error.message || 'Falha ao conectar.';
+});
+
+socket.on('welcome', () => {
+  $('authScreen').style.display = 'none';
+});
+
+async function connectWithSession(session) {
+  if (!session) return;
+
+  socket.auth = { token: session.access_token };
+  if (!socket.connected) socket.connect();
+}
+
+$('loginBtn').onclick = async () => {
+  const email = $('authEmail').value.trim();
+  const password = $('authPassword').value;
+  $('authMessage').textContent = 'Entrando...';
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) {
+    $('authMessage').textContent = error.message;
+    return;
+  }
+
+  await connectWithSession(data.session);
+};
+
+$('registerBtn').onclick = async () => {
+  const email = $('authEmail').value.trim();
+  const password = $('authPassword').value;
+  $('authMessage').textContent = 'Criando conta...';
+
+  const { data, error } = await supabaseClient.auth.signUp({
+    email,
+    password
+  });
+
+  if (error) {
+    $('authMessage').textContent = error.message;
+    return;
+  }
+
+  if (data.session) {
+    await connectWithSession(data.session);
+  } else {
+    $('authMessage').textContent =
+      'Conta criada! Confira seu e-mail para confirmar o cadastro.';
+  }
+};
+
+(async () => {
+  const { data } = await supabaseClient.auth.getSession();
+  if (data.session) await connectWithSession(data.session);
+})();
+
 })();
 </script></body></html>
