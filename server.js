@@ -343,23 +343,54 @@ setInterval(() => {
     }
   }
   for (const p of players.values()) {
-    p.moving = Date.now() - (p.lastMoveAt || 0) < 180;
-    if (!p.afk || Date.now() - p.lastAttack < 700) continue;
-    const target = monsters.filter(m => Math.hypot(m.x-p.x,m.y-p.y) < 100)
-      .sort((a,b) => Math.hypot(a.x-p.x,a.y-p.y) - Math.hypot(b.x-p.x,b.y-p.y))[0];
+    const now = Date.now();
+    p.moving = now - (p.lastMoveAt || 0) < 180;
+    if (!p.afk) continue;
+
+    // AFK farm: find the nearest monster, walk toward it, and attack when close.
+    let target = monsters
+      .map(m => ({ monster: m, distance: Math.hypot(m.x - p.x, m.y - p.y) }))
+      .sort((a, b) => a.distance - b.distance)[0];
+
+    if (target && target.distance > 72) {
+      const dx = (target.monster.x - p.x) / target.distance;
+      const dy = (target.monster.y - p.y) / target.distance;
+      const step = 20; // 80 world units per second at the 250 ms server tick
+      const nx = Math.max(12, Math.min(WORLD.width - 12, p.x + dx * step));
+      const ny = Math.max(12, Math.min(WORLD.height - 12, p.y + dy * step));
+      if (!collides(nx, p.y, 8)) p.x = nx;
+      if (!collides(p.x, ny, 8)) p.y = ny;
+      p.faceX = dx; p.faceY = dy;
+      p.lastMoveAt = now; p.moving = true;
+    } else if (!target && now - (p.lastWanderAt || 0) > 2500) {
+      // If no monsters exist temporarily, wander a little until they respawn.
+      const angle = Math.random() * Math.PI * 2;
+      const nx = Math.max(12, Math.min(WORLD.width - 12, p.x + Math.cos(angle) * 70));
+      const ny = Math.max(12, Math.min(WORLD.height - 12, p.y + Math.sin(angle) * 70));
+      if (!collides(nx, ny, 8)) { p.x = nx; p.y = ny; }
+      p.faceX = Math.cos(angle); p.faceY = Math.sin(angle);
+      p.lastWanderAt = now; p.lastMoveAt = now; p.moving = true;
+    }
+
+    if (now - p.lastAttack < 700) continue;
+    target = monsters
+      .map(m => ({ monster: m, distance: Math.hypot(m.x - p.x, m.y - p.y) }))
+      .filter(item => item.distance < 100)
+      .sort((a, b) => a.distance - b.distance)[0];
     if (target) {
-      p.lastAttack = Date.now();
-      target.hp -= p.attack;
-      io.emit("monsterHit", { id: target.id, hp: target.hp, maxHp: target.maxHp, x: target.x, y: target.y, damage: p.attack, attacker: p.id });
-      if (target.hp <= 0) {
-        const idx = monsters.findIndex(m => m.id === target.id);
+      p.lastAttack = now;
+      const m = target.monster;
+      m.hp -= p.attack;
+      io.emit("monsterHit", { id: m.id, hp: m.hp, maxHp: m.maxHp, x: m.x, y: m.y, damage: p.attack, attacker: p.id });
+      if (m.hp <= 0) {
+        const idx = monsters.findIndex(item => item.id === m.id);
         if (idx >= 0) monsters.splice(idx, 1);
         p.kills++; p.gold += Math.floor(rand(5,13)); p.xp += 15;
         while (p.xp >= p.nextXp) { p.xp -= p.nextXp; p.level++; p.nextXp = Math.floor(p.nextXp*1.45); p.attack += 3; p.maxHp += 15; p.hp = p.maxHp; }
         io.to(p.id).emit("selfUpdate", p);
         void grantRandomLoot(p, p.id);
         saveCharacter(p.userId, p);
-        io.emit("monsterDied", { id: target.id, x: target.x, y: target.y, by: p.name, gold: p.gold, level: p.level });
+        io.emit("monsterDied", { id: m.id, x: m.x, y: m.y, by: p.name, gold: p.gold, level: p.level });
         setTimeout(spawnMonster, 3000);
       }
     }
