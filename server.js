@@ -83,6 +83,84 @@ function spawnPosition() {
   return { x: WORLD.width / 2, y: WORLD.height / 2 };
 }
 
+async function loadCharacter(user) {
+  const { data, error } = await supabaseAdmin
+    .from("characters")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  if (data) {
+    return {
+      name: data.name,
+      x: data.x,
+      y: data.y,
+      hp: data.hp,
+      maxHp: data.max_hp,
+      level: data.level,
+      xp: data.xp,
+      nextXp: data.next_xp,
+      gold: data.gold,
+      kills: data.kills,
+      attack: data.attack
+    };
+  }
+
+  const spawn = spawnPosition();
+
+  const character = {
+    name: "Exilado-" + user.id.slice(0, 4),
+    x: spawn.x,
+    y: spawn.y,
+    hp: 100,
+    maxHp: 100,
+    level: 1,
+    xp: 0,
+    nextXp: 50,
+    gold: 0,
+    kills: 0,
+    attack: 12
+  };
+
+  const { error: insertError } = await supabaseAdmin
+    .from("characters")
+    .insert({
+      user_id: user.id,
+      name: character.name,
+      x: character.x,
+      y: character.y
+    });
+
+  if (insertError) throw insertError;
+
+  return character;
+}
+
+async function saveCharacter(userId, player) {
+  if (!supabaseAdmin || !userId || !player) return;
+
+  const { error } = await supabaseAdmin
+    .from("characters")
+    .update({
+      name: player.name,
+      x: player.x,
+      y: player.y,
+      hp: player.hp,
+      max_hp: player.maxHp,
+      level: player.level,
+      xp: player.xp,
+      next_xp: player.nextXp,
+      gold: player.gold,
+      kills: player.kills,
+      attack: player.attack,
+      updated_at: new Date().toISOString()
+    })
+    .eq("user_id", userId);
+
+  if (error) console.error("Erro ao salvar personagem:", error.message);
+}
 io.on("connection", socket => {
   const spawn = spawnPosition();
   const p = {
