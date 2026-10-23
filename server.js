@@ -335,3 +335,13 @@ setInterval(() => {
 }, 250);
 
 server.listen(PORT, () => console.log(`UMBRA rodando em http://localhost:${PORT}`));
+
+/* Salvamento automático dos personagens a cada 30 segundos */
+setInterval(() => {
+  for (const player of players.values()) {
+    if (player.userId) {
+      saveCharacter(player.userId, player);
+    }
+  }
+}, 30_000);
+
